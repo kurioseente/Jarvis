@@ -5,7 +5,7 @@
 #define ROWS 50000
 #define COLS 784
 
-void load_data(int **array) {  // <== Geändert!
+void load_data(int **array) { 
     FILE *file = fopen("data.csv", "r");
     if (!file) {
         printf("FEHLER: Datei nicht gefunden!\n");
@@ -36,9 +36,9 @@ void load_data(int **array) {  // <== Geändert!
 }
 
 int main() {
-    printf("Wer hier?\n");
+    printf("Good morning, sir. All systems operational.\n");
 
-    // Dynamisches Array
+    // WICHTIG am ende ist es so das bei data[Pixel][Bild] heisst das max in der zukunft das nicht vergisst/vertauscht und 10000 stunden debuggt!!!!!!
     int **data = malloc(ROWS * sizeof(int *));
     for (int i = 0; i < ROWS; i++) {
         data[i] = malloc(COLS * sizeof(int));
@@ -47,7 +47,6 @@ int main() {
     load_data(data);
     printf("Wert: %d\n", data[0][0]);
 
-    // Speicher freigeben
     for (int i = 0; i < ROWS; i++) {
         free(data[i]);
     }
