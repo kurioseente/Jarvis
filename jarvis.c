@@ -69,7 +69,6 @@ void load_data(int **array) {
         }
         row++;
     }
-
     if (row < 5) {
         printf("FEHLER: Keine Daten geladen!\n");
     }
@@ -80,14 +79,13 @@ void load_data(int **array) {
 int main() {
     printf("Good morning, sir. All systems operational.\n");
 
-    // WICHTIG am ende ist es so das bei data[Pixel + 1][Bild] heisst das max in der zukunft das nicht vergisst/vertauscht und 10000 stunden debuggt!!!!!!
+    // WICHTIG am ende ist es so das bei data[Pixel + Expected answer (1)][Bild] heisst das max in der zukunft das nicht vergisst/vertauscht und 10000 stunden debuggt!!!!!!
     int **data = malloc((W1_ROWS+1) * sizeof(int *));
     for (int i = 0; i < (W1_ROWS+1); i++) {
         data[i] = malloc(W1_COLS * sizeof(int));
     }
 
     load_data(data);
-    printf("Wert: %d\n", data[0][0]);
 
     for (int i = 0; i < (W1_ROWS+1); i++) {
         free(data[i]);
