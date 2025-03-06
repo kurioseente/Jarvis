@@ -360,65 +360,84 @@ void back_propagation(double *right_one, int *pic)
     }
 }
 
-void load_data(int **data_set)
-{
+void load_train_data(int **data_set) {
     FILE *file = fopen("data.csv", "r");
-    if (!file)
-    {
+    if (!file) {
         printf("FEHLER: Datei nicht gefunden!\n");
         perror("Fehler");
         return;
     }
 
-    char line[5000];
+    char line[60000];  // Vergrößerter Puffer für eine Zeile
     int row = 0;
 
-    while (fgets(line, sizeof(line), file) && row < W1_ROWS + 1)
-    {
-        char *token = strtok(line, ",\r\n");
-        int col = 0;
 
-        while (token != NULL && col < W1_COLS)
-        {
-            data_set[row][col] = atoi(token);
-            token = strtok(NULL, ",\r\n");
-            col++;
+    while (fgets(line, sizeof(line), file) && row < 50000) {
+        int col = 0;
+        char *ptr = line;
+        while (col < 785) {
+            int wert;
+            if (sscanf(ptr, "%d", &wert) == 1) {
+                data_set[row][col] = wert;
+                while (*ptr != ',' && *ptr != '\0') {
+                    ptr++;
+                }
+                if (*ptr == ',') {
+                    ptr++;
+                }
+                col++;
+            } else {
+                break;
+            }
+        }
+        if (col != 785) {
+            fprintf(stderr, "Warnung: Zeile %d hat nur %d Werte!\n", row, col);
         }
         row++;
     }
-    if (row < 5)
-    {
-        printf("FEHLER: Keine Daten geladen!\n");
-    }
-
-    load_params();
 
     fclose(file);
+    printf("Daten erfolgreich geladen! (Gelesene Zeilen: %d)\n", row);
 }
-
-
 
 int main()
 {
     printf("Good morning, sir. All systems operational.\n");
 
     // WICHTIG am ende ist es so das bei data[Pixel + Expected answer (1)][Bild] heisst das max in der zukunft das nicht vergisst/vertauscht und 10000 stunden debuggt!!!!!!
-    int **data = malloc((W1_ROWS) * sizeof(int *));
-    for (int i = 0; i < (W1_ROWS); i++)
-    {
-        data[i] = malloc(W1_COLS * sizeof(int));
+    int **data = malloc(60000 * sizeof(int *));
+if (data == NULL) {
+    printf("Fehler: Speicher für data konnte nicht reserviert werden!\n");
+    exit(EXIT_FAILURE);
+}
+
+for (int i = 0; i < 60000; i++) {
+    data[i] = malloc(785 * sizeof(int));  // Jetzt richtige Größe
+    if (data[i] == NULL) {
+        printf("Fehler: Speicher für data[%d] konnte nicht reserviert werden!\n", i);
+        exit(EXIT_FAILURE);
     }
+}
 
-    load_data(data);
+    
+    printf("1\n");
 
+    load_train_data(data);
+
+    
+    load_params();
+    /*
     for (int i = 0; i < (W1_ROWS + 1); i++)
     {
         free(data[i]);
     }
     free(data);
+    */
+    printf("2\n");
     // the number of training exmaples you wanna go through
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 100; i++)
     {
+        printf("hello\n");
         current_training = i;
         int pic[783];
         for (int j = 0; j < 783; j++)
@@ -441,8 +460,10 @@ int main()
         
         back_propagation(right_one, pic);
     }
+    printf("2\n");
     printf("hier sind wir");
     save_params();
+    printf("3\n");
 
     return 0;
 }
