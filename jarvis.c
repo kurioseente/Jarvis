@@ -23,6 +23,11 @@ int current_training = 0;
 
 int first_time_init = 0;
 
+double he_init(double fan_in) {
+    double std_dev = sqrt(2.0 / fan_in);
+    return std_dev * ((double)rand() / RAND_MAX);
+}
+
 void load_params()
 {
     if (first_time_init)
@@ -36,20 +41,19 @@ void load_params()
             b2[i] = 0.0;
         }
 
-        for (int i = 0; i < W1_ROWS; i++)
-        {
-            for (int j = 0; j < W1_COLS; j++)
-            {
-                W1[i][j] = -0.087 + ((double)rand() / RAND_MAX) * (0.087 - (-0.087));
-            }
-            for (int i = 0; i < W2_ROWS; i++)
-            {
-                for (int j = 0; j < W2_COLS; j++)
-                {
-                    W2[i][j] = -0.548 + ((double)rand() / RAND_MAX) * (0.548 - (-0.548));
-                }
+        for (int i = 0; i < W1_ROWS; i++) {
+            for (int j = 0; j < W1_COLS; j++) {
+                W1[i][j] = he_init(W1_ROWS);  // W1_ROWS entspricht der Anzahl der Inputs
             }
         }
+        
+        for (int i = 0; i < W2_ROWS; i++) {
+            for (int j = 0; j < W2_COLS; j++) {
+                W2[i][j] = he_init(W2_ROWS);  // W2_ROWS entspricht der Anzahl der Inputs zur Hidden Layer
+            }
+        }
+        
+        
     }
     else
     {
@@ -112,6 +116,9 @@ void load_params()
         }
         fclose(bias2_ptr);
     }
+}
+int random_int(int min, int max) {
+    return min + rand() % (max - min + 1);
 }
 
 void save_params()
@@ -186,6 +193,8 @@ void save_params()
 }
 
 // Math
+
+
 void matrix_vector_multiply(double *matrix, double *vector, double *result, int rows, int cols)
 {
     for (int i = 0; i < rows; i++)
@@ -210,11 +219,6 @@ void matrix_add_vector(double *matrix, double *vector, double *result, int rows,
 }
 //
 
-double xavier_init(int fan_in, int fan_out)
-{
-    double limit = sqrt(6.0 / (fan_in + fan_out));
-    return -limit + ((double)rand() / RAND_MAX) * (2 * limit);
-}
 
 double clip_gradient(double gradient, double threshold)
 {
@@ -232,10 +236,21 @@ double clip_gradient(double gradient, double threshold)
     }
 }
 
-double relu_derivative(double x)
-{
-    return x > 0 ? 1 : 0.01;
+double elu(double x, double alpha) {
+    if (x > 0) {
+        return x;
+    } else {
+        return alpha * (exp(x) - 1);
+    }
 }
+double elu_derivative(double x, double alpha) {
+    if (x > 0) {
+        return 1;
+    } else {
+        return alpha * exp(x);
+    }
+}
+
 
 double *softmax(double *array, int size)
 {
@@ -264,17 +279,11 @@ double *softmax(double *array, int size)
     return result;
 }
 
-double ReLu(double n)
-{
-    return n > 0 ? n : 0.01 * n;
-}
-
 void forward_propagation(int *pic)
 {
     // Debugging: Vorwärtspropagation
     for (int i = 0; i < B1_SIZE; i++)
     {
-        // schon nan
         z1[i] = 0.0;
         for (int j = 0; j < W1_ROWS; j++)
         {
@@ -285,7 +294,7 @@ void forward_propagation(int *pic)
 
     for (int i = 0; i < B1_SIZE; i++)
     {
-        a1[i] = ReLu(z1[i]);
+        a1[i] = elu(z1[i], 1.0);  // ELU statt ReLU, alpha=1.0
     }
 
     for (int i = 0; i < B2_SIZE; i++)
@@ -306,11 +315,12 @@ void forward_propagation(int *pic)
     free(softmax_output);
 }
 
+
 double calculate_accuracy(int **data, int num_samples)
 {
     int correct_predictions = 0;
 
-    for (int i = 0; i < num_samples; i++)
+    for (int i = 0; i < num_samples ; i++)
     {
         int *pic = malloc(785 * sizeof(int));
         if (pic == NULL)
@@ -318,10 +328,10 @@ double calculate_accuracy(int **data, int num_samples)
             perror("Fehler bei malloc für erste_zeile");
             exit(EXIT_FAILURE);
         }
-        memcpy(pic, data[i], 785 * sizeof(int));
+        memcpy(pic, data[random_int(0,6000)], 785 * sizeof(int));
         forward_propagation(pic);
 
-        int expected_label = data[i][784];
+        int expected_label = data[0][i];
         int predicted_label = 0;
         for (int j = 1; j < 10; j++)
         {
@@ -365,8 +375,8 @@ void back_propagation(double *right_one, int *pic)
     {
         for (int j = 0; j < 10; j++)
         {
-            dW2[i][j] = delta2[i] * a1[j];
-            dW2[i][j] = clip_gradient(dW2[i][j], 1.0); // Gradient Clipping
+            dW2[i][j] = delta2[i] * a1[j] / 10.0;
+            dW2[i][j] = clip_gradient(dW2[i][j], 5.0); // Gradient Clipping
         }
     }
 
@@ -375,7 +385,7 @@ void back_propagation(double *right_one, int *pic)
     for (int i = 0; i < 10; i++)
     {
         db2[i] = delta2[i];
-        db2[i] = clip_gradient(db2[i], 1.0);
+        db2[i] = clip_gradient(db2[i], 5.0);
     }
 
     // Fehler in der Hidden Layer
@@ -385,19 +395,23 @@ void back_propagation(double *right_one, int *pic)
         delta1[i] = 0.0;
         for (int j = 0; j < 10; j++)
         {
-            delta1[i] += W2[j][i] * delta2[j];
+            delta1[i] += W2[i][j] * delta2[j];
         }
-        delta1[i] *= relu_derivative(z1[i]);
+
+        // ELU Ableitung anwenden
+        if (z1[i] > 0) {
+            delta1[i] *= 1.0;  // ELU' = 1 für positive Werte
+        } else {
+            delta1[i] *= exp(z1[i]);  // ELU' = exp(z1) für negative Werte
+        }
     }
 
     // Gradienten für W1
-    double dW1[10][784];
-    for (int i = 0; i < 10; i++)
-    {
-        for (int j = 0; j < 784; j++)
-        {
-            dW1[i][j] = delta1[i] * pic[j];
-            dW1[i][j] = clip_gradient(dW1[i][j], 1.0);
+    double dW1[784][10];
+    for (int j = 0; j < 784; j++) {
+        for (int i = 0; i < 10; i++) {
+            dW1[j][i] = delta1[i] * pic[j]; // Korrekte Indizierung
+            dW1[j][i] = clip_gradient(dW1[j][i], 5.0);
         }
     }
 
@@ -406,21 +420,22 @@ void back_propagation(double *right_one, int *pic)
     for (int i = 0; i < 10; i++)
     {
         db1[i] = delta1[i];
-        db1[i] = clip_gradient(db1[i], 1.0);
+        db1[i] = clip_gradient(db1[i], 5.0);
     }
 
-    // Lernrate //////////////////////////////////////////////////
-    double learning_rate = 0.1;
+    // Lernrate
+    double learning_rate = 0.01;
 
-    for (int i = 0; i < 10; i++)
+    // Aktualisiere W1 und b1
+    for (int j = 0; j < 784; j++)
     {
-        for (int j = 0; j < 784; j++)
+        for (int i = 0; i < 10; i++)
         {
-            W1[i][j] -= learning_rate * dW1[i][j];
+            W1[j][i] -= learning_rate * dW1[j][i];
         }
-        b1[i] -= learning_rate * db1[i];
     }
 
+    // Aktualisiere W2 und b2
     for (int i = 0; i < 10; i++)
     {
         for (int j = 0; j < 10; j++)
@@ -428,6 +443,7 @@ void back_propagation(double *right_one, int *pic)
             W2[i][j] -= learning_rate * dW2[i][j];
         }
         b2[i] -= learning_rate * db2[i];
+        b1[i] -= learning_rate * db1[i];
     }
 
     // Debugging: Überprüfen auf NaN-Werte
@@ -461,7 +477,6 @@ void back_propagation(double *right_one, int *pic)
         }
     }
 }
-
 void load_train_data(int **data_set)
 {
     FILE *file = fopen("data.csv", "r");
@@ -528,7 +543,6 @@ int main()
         }
     }
     load_params();
-    save_params();
 
     load_train_data(data);
 
@@ -540,30 +554,47 @@ int main()
 
         for (int i = 0; i < train_size; i++)
         {
+        
 
             current_training = i;
+            int *cache = malloc(785 * sizeof(int));
+            if (cache == NULL)
+            {
+                perror("Fehler bei malloc für erste_zeile");
+                exit(EXIT_FAILURE);
+            }
+            for (int i = 1; i < 785; i++) {  // i beginnt bei 1, um data[0] zu überspringen
+                memcpy(cache, data[i], 785 * sizeof(int));
+            }
+            
+            forward_propagation(cache);
+
             int *pic = malloc(785 * sizeof(int));
             if (pic == NULL)
             {
                 perror("Fehler bei malloc für erste_zeile");
                 exit(EXIT_FAILURE);
             }
-            memcpy(pic, data[i], 785 * sizeof(int)); // Hier wurde data[0] zu data[i] geändert
-
-            forward_propagation(pic);
+            for (int i = 1; i < 785; i++) {  // i beginnt bei 1, um data[0] zu überspringen
+                pic[i] = cache[i];
+            }
             if (isnan(W1[1][1]) && epoch == 0 && i == 1)
             {
                 printf("forward_propagation: 1 indings[%d] ist NaN!\n", i);
             }
 
-            double right_one[10] = {0};
-            for (int j = 0; j < 10; j++)
+            double right_one[10];
+            for (int p = 0; p < 10; p++)
             {
-                if (data[i][784] == j)
-                { // Das Label ist das letzte Element in der Zeile
-                    right_one[j] = 1;
+                if (data[0][current_training] == p)
+                {
+                    right_one[p] = 1;
+                }else{
+                    right_one[p] =0;
                 }
+                
             }
+            
 
             if (isnan(W1[1][1]) && i == 1 && epoch == 0)
             {
@@ -576,8 +607,8 @@ int main()
                 printf("forward_propagation: 3 indings[%d] ist NaN!\n", epoch);
             }
         }
-
-        double accuracy = calculate_accuracy(data + train_size, test_size);
+save_params();
+        double accuracy = calculate_accuracy(data, test_size);
         printf("Epoch %d: Testgenauigkeit = %.2f%%\n", epoch + 1, accuracy);
     }
 
