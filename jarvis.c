@@ -21,7 +21,7 @@ double a2[10];
 
 int current_training = 0;
 
-int first_time_init = 1;
+int first_time_init = 0;
 
 void load_params()
 {
@@ -36,7 +36,6 @@ void load_params()
             b2[i] = 0.0;
         }
 
-        // Weights zufällig initialisieren
         for (int i = 0; i < W1_ROWS; i++)
         {
             for (int j = 0; j < W1_COLS; j++)
@@ -211,41 +210,54 @@ void matrix_add_vector(double *matrix, double *vector, double *result, int rows,
 }
 //
 
-double xavier_init(int fan_in, int fan_out) {
+double xavier_init(int fan_in, int fan_out)
+{
     double limit = sqrt(6.0 / (fan_in + fan_out));
     return -limit + ((double)rand() / RAND_MAX) * (2 * limit);
 }
 
-double clip_gradient(double gradient, double threshold) {
-    if (gradient > threshold) {
+double clip_gradient(double gradient, double threshold)
+{
+    if (gradient > threshold)
+    {
         return threshold;
-    } else if (gradient < -threshold) {
+    }
+    else if (gradient < -threshold)
+    {
         return -threshold;
-    } else {
+    }
+    else
+    {
         return gradient;
     }
 }
 
-double relu_derivative(double x) {
+double relu_derivative(double x)
+{
     return x > 0 ? 1 : 0.01;
 }
 
-double *softmax(double *array, int size) {
+double *softmax(double *array, int size)
+{
     double *result = (double *)malloc(size * sizeof(double));
     double max_val = array[0];
-    for (int i = 1; i < size; i++) {
-        if (array[i] > max_val) {
+    for (int i = 1; i < size; i++)
+    {
+        if (array[i] > max_val)
+        {
             max_val = array[i];
         }
     }
 
     double sum = 0.0;
-    for (int i = 0; i < size; i++) {
-        result[i] = exp(array[i] - max_val); // Stabilisierung durch Subtraktion des Maximums
+    for (int i = 0; i < size; i++)
+    {
+        result[i] = exp(array[i] - max_val);
         sum += result[i];
     }
 
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++)
+    {
         result[i] /= sum;
     }
 
@@ -257,38 +269,39 @@ double ReLu(double n)
     return n > 0 ? n : 0.01 * n;
 }
 
-void forward_propagation(int *pic) {
+void forward_propagation(int *pic)
+{
     // Debugging: Vorwärtspropagation
-    for (int i = 0; i < B1_SIZE; i++) {
-        //schon nan
+    for (int i = 0; i < B1_SIZE; i++)
+    {
+        // schon nan
         z1[i] = 0.0;
-        for (int j = 0; j < W1_ROWS; j++) {
+        for (int j = 0; j < W1_ROWS; j++)
+        {
             z1[i] += W1[j][i] * pic[j];
-            //schon nan
-            
         }
         z1[i] += b1[i];
-        
     }
 
-    for (int i = 0; i < B1_SIZE; i++) {
+    for (int i = 0; i < B1_SIZE; i++)
+    {
         a1[i] = ReLu(z1[i]);
     }
 
-    for (int i = 0; i < B2_SIZE; i++) {
+    for (int i = 0; i < B2_SIZE; i++)
+    {
         z2[i] = 0.0;
-        for (int j = 0; j < W2_ROWS; j++) {
+        for (int j = 0; j < W2_ROWS; j++)
+        {
             z2[i] += W2[j][i] * a1[j];
-            
         }
         z2[i] += b2[i];
-        
     }
 
     double *softmax_output = softmax(z2, B2_SIZE);
-    for (int i = 0; i < B2_SIZE; i++) {
+    for (int i = 0; i < B2_SIZE; i++)
+    {
         a2[i] = softmax_output[i];
-        
     }
     free(softmax_output);
 }
@@ -338,16 +351,20 @@ double fault_rate(double *a2, double *right_one)
 }
 
 //*** where the real struggle & magic happens ngl ***//
-void back_propagation(double *right_one, int *pic) {
+void back_propagation(double *right_one, int *pic)
+{
     double delta2[10];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++)
+    {
         delta2[i] = a2[i] - right_one[i];
     }
 
     // Gradienten für W2
     double dW2[10][10];
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
             dW2[i][j] = delta2[i] * a1[j];
             dW2[i][j] = clip_gradient(dW2[i][j], 1.0); // Gradient Clipping
         }
@@ -355,74 +372,91 @@ void back_propagation(double *right_one, int *pic) {
 
     // Gradienten für b2
     double db2[10];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++)
+    {
         db2[i] = delta2[i];
-        db2[i] = clip_gradient(db2[i], 1.0); // Gradient Clipping
+        db2[i] = clip_gradient(db2[i], 1.0);
     }
 
     // Fehler in der Hidden Layer
     double delta1[10];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++)
+    {
         delta1[i] = 0.0;
-        for (int j = 0; j < 10; j++) {
+        for (int j = 0; j < 10; j++)
+        {
             delta1[i] += W2[j][i] * delta2[j];
         }
-        delta1[i] *= relu_derivative(z1[i]); // Ableitung der ReLU
+        delta1[i] *= relu_derivative(z1[i]);
     }
 
     // Gradienten für W1
     double dW1[10][784];
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 784; j++) {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 784; j++)
+        {
             dW1[i][j] = delta1[i] * pic[j];
-            dW1[i][j] = clip_gradient(dW1[i][j], 1.0); // Gradient Clipping
+            dW1[i][j] = clip_gradient(dW1[i][j], 1.0);
         }
     }
 
     // Gradienten für b1
     double db1[10];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++)
+    {
         db1[i] = delta1[i];
-        db1[i] = clip_gradient(db1[i], 1.0); // Gradient Clipping
+        db1[i] = clip_gradient(db1[i], 1.0);
     }
 
-    // Lernrate
-    double learning_rate = 0.01;
+    // Lernrate //////////////////////////////////////////////////
+    double learning_rate = 0.1;
 
-    // Aktualisierung der Gewichte und Bias-Werte
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 784; j++) {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 784; j++)
+        {
             W1[i][j] -= learning_rate * dW1[i][j];
         }
         b1[i] -= learning_rate * db1[i];
     }
 
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
             W2[i][j] -= learning_rate * dW2[i][j];
         }
         b2[i] -= learning_rate * db2[i];
     }
 
     // Debugging: Überprüfen auf NaN-Werte
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 784; j++) {
-            if (isnan(W1[i][j])) {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 784; j++)
+        {
+            if (isnan(W1[i][j]))
+            {
                 printf("W1[%d][%d] ist NaN!\n", i, j);
             }
         }
-        if (isnan(b1[i])) {
+        if (isnan(b1[i]))
+        {
             printf("b1[%d] ist NaN!\n", i);
         }
     }
 
-    for (int i = 0; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            if (isnan(W2[i][j])) {
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            if (isnan(W2[i][j]))
+            {
                 printf("W2[%d][%d] ist NaN!\n", i, j);
             }
         }
-        if (isnan(b2[i])) {
+        if (isnan(b2[i]))
+        {
             printf("b2[%d] ist NaN!\n", i);
         }
     }
@@ -495,48 +529,54 @@ int main()
     }
     load_params();
     save_params();
-    
+
     load_train_data(data);
-    
-    int num_epochs = 2;
+
+    int num_epochs = 5;
     int train_size = 50000;
     int test_size = 10000;
-    for (int epoch = 0; epoch < num_epochs; epoch++) {
-        
-        for (int i = 0; i < train_size; i++) {
-        
+    for (int epoch = 0; epoch < num_epochs; epoch++)
+    {
+
+        for (int i = 0; i < train_size; i++)
+        {
+
             current_training = i;
             int *pic = malloc(785 * sizeof(int));
-            if (pic == NULL) {
+            if (pic == NULL)
+            {
                 perror("Fehler bei malloc für erste_zeile");
                 exit(EXIT_FAILURE);
             }
-            memcpy(pic, data[i], 785 * sizeof(int));  // Hier wurde data[0] zu data[i] geändert
+            memcpy(pic, data[i], 785 * sizeof(int)); // Hier wurde data[0] zu data[i] geändert
 
-        
             forward_propagation(pic);
-            if (isnan(W1[1][1]) && epoch == 0 && i ==1) {
+            if (isnan(W1[1][1]) && epoch == 0 && i == 1)
+            {
                 printf("forward_propagation: 1 indings[%d] ist NaN!\n", i);
             }
 
             double right_one[10] = {0};
-            for (int j = 0; j < 10; j++) {
-                if (data[i][784] == j) {  // Das Label ist das letzte Element in der Zeile
+            for (int j = 0; j < 10; j++)
+            {
+                if (data[i][784] == j)
+                { // Das Label ist das letzte Element in der Zeile
                     right_one[j] = 1;
                 }
             }
-    
-            if (isnan(W1[1][1]) && i == 1&& epoch == 0) {
+
+            if (isnan(W1[1][1]) && i == 1 && epoch == 0)
+            {
                 printf("forward_propagation: 2 indings[%d] ist NaN!\n", epoch);
             }
 
             back_propagation(right_one, pic);
-            if (isnan(W1[1][1]) && i ==2 && epoch == 0) {
+            if (isnan(W1[1][1]) && i == 2 && epoch == 0)
+            {
                 printf("forward_propagation: 3 indings[%d] ist NaN!\n", epoch);
             }
-            
         }
-        
+
         double accuracy = calculate_accuracy(data + train_size, test_size);
         printf("Epoch %d: Testgenauigkeit = %.2f%%\n", epoch + 1, accuracy);
     }
@@ -544,11 +584,11 @@ int main()
     save_params();
     printf("Training abgeschlossen und Parameter gespeichert.\n");
 
-    for (int i = 0; i < 60000; i++) {
+    for (int i = 0; i < 60000; i++)
+    {
         free(data[i]);
     }
     free(data);
-    
 
     return 0;
 }
